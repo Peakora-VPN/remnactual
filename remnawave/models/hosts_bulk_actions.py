@@ -4,12 +4,13 @@
 поэтому моделей ответа у них больше нет — контроллеры объявлены с
 ``response_class=None`` и возвращают ``None``.
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
 from remnawave.enums import ALPN, MihomoIpVersion, SecurityLayer, SubscriptionType
+from remnawave.models.host_mapper import HostMapperDto
 from remnawave.models.hosts import (
     CreateHostInboundData,
     HostInternalSquadsDto,
@@ -65,6 +66,7 @@ class UpdateManyHostsBodyDto(BaseModel):
     internal_squads: Optional[HostInternalSquadsDto] = Field(
         None, serialization_alias="internalSquads"
     )
+    mapper: Optional[HostMapperDto] = None
     exclude_from_subscription_types: Optional[List[SubscriptionType]] = Field(
         None,
         serialization_alias="excludeFromSubscriptionTypes",
