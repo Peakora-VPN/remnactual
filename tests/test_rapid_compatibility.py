@@ -9,7 +9,7 @@ from pydantic import Field, ValidationError
 from rapid_api_client import Path, Query
 
 from remnawave import RemnawaveSDK
-from remnawave.models import UpdateHostBodyDto
+from remnawave.models import UpdateHostBodyDto, UpdateManyHostsBodyDto
 from remnawave.rapid import AttributeBody, BaseController, get, post
 from remnawave.utils.happ_crypt import create_happ_crypto_link
 from tests.test_3_3_compliance import HOST_PAYLOAD
@@ -28,6 +28,42 @@ async def test_patch_keeps_explicit_null_and_omits_unset_fields():
     ) as client:
         await RemnawaveSDK(client=client).hosts.update_host(
             UpdateHostBodyDto(uuid=HOST_PAYLOAD["uuid"], server_description=None)
+        )
+
+
+async def test_bulk_host_update_preserves_mapper_operations():
+    mapper = {"xrayJson": [
+        {"op": "copy", "from": "$host.address", "to": "server"},
+        {"op": "set", "to": "tls.enabled", "value": False},
+        {"op": "unset", "to": "mux"},
+    ]}
+
+    def respond(request):
+        assert request.method == "PATCH"
+        assert request.url.path == "/api/hosts/bulk/update"
+        assert json.loads(request.content) == {
+            "uuids": [HOST_PAYLOAD["uuid"]], "mapper": mapper,
+        }
+        return httpx.Response(204)
+
+    async with httpx.AsyncClient(
+        base_url="https://panel.invalid/api", transport=httpx.MockTransport(respond)
+    ) as client:
+        assert await RemnawaveSDK(client=client).hosts_bulk_actions.update_hosts(
+            UpdateManyHostsBodyDto(uuids=[HOST_PAYLOAD["uuid"]], mapper=mapper)
+        ) is None
+
+
+async def test_bulk_host_update_omits_unset_mapper():
+    def respond(request):
+        assert json.loads(request.content) == {"uuids": [HOST_PAYLOAD["uuid"]]}
+        return httpx.Response(204)
+
+    async with httpx.AsyncClient(
+        base_url="https://panel.invalid/api", transport=httpx.MockTransport(respond)
+    ) as client:
+        await RemnawaveSDK(client=client).hosts_bulk_actions.update_hosts(
+            UpdateManyHostsBodyDto(uuids=[HOST_PAYLOAD["uuid"]])
         )
 
 
