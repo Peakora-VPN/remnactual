@@ -52,6 +52,7 @@ jobs:
             tests/test_3_0_compliance.py tests/test_3_2_compliance.py \
             tests/test_3_2_3_compliance.py tests/test_3_3_compliance.py \
             tests/test_3_4_compliance.py tests/test_3_4_4_compliance.py \
+            tests/test_3_4_7_compliance.py \
             tests/test_rapid_compatibility.py \
             tests/test_models_validation.py tests/test_enums.py \
             tests/test_controllers_completeness.py

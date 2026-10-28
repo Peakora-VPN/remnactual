@@ -7,7 +7,7 @@
 [![Fork of remnawave/python-sdk](https://img.shields.io/badge/fork%20of-remnawave%2Fpython--sdk-24292f?logo=github)](https://github.com/remnawave/python-sdk)
 
 [![Remnawave panel](https://img.shields.io/badge/Remnawave%20panel-%E2%89%A5%203.0.0-1f6feb)](https://remna.st)
-[![Backend contract](https://img.shields.io/badge/backend--contract-3.4.4-1f6feb)](https://github.com/remnawave/backend/tree/3.4.4/libs/contract)
+[![Backend contract](https://img.shields.io/badge/backend--contract-3.4.7-1f6feb)](https://github.com/remnawave/backend/tree/3.4.7/libs/contract)
 [![Endpoints](https://img.shields.io/badge/endpoints-222-1f6feb)](https://github.com/IceOne-i/remnactual#controllers)
 [![Models](https://img.shields.io/badge/models-695-1f6feb)](https://github.com/IceOne-i/remnactual#controllers)
 [![API docs](https://img.shields.io/badge/API%20docs-docs.rw-1f6feb)](https://docs.rw/api)
@@ -34,7 +34,7 @@ Asynchronous Python client for the **[Remnawave](https://remna.st)** panel API, 
 
 | SDK version | Remnawave panel | Backend contract |
 | ----------- | --------------- | ---------------- |
-| Next release | >= 3.0.0       | `remnawave/backend` at tag 3.4.4 |
+| Next release | >= 3.0.0       | `remnawave/backend` at tag 3.4.7 |
 | 3.4.3       | >= 3.0.0        | `remnawave/backend` at tag 3.4.3 |
 | 3.3.2       | >= 3.0.0        | `remnawave/backend` at tag 3.3.2 |
 | 3.2.3       | >= 3.0.0        | `@remnawave/backend-contract` 3.2.3 |
@@ -43,11 +43,11 @@ Asynchronous Python client for the **[Remnawave](https://remna.st)** panel API, 
 | 2.8.1       | >= 2.8.0, < 3.0 | `@remnawave/backend-contract` 2.8.35 |
 
 Every endpoint, request body and response model in this fork is verified against
-`libs/contract` of [`remnawave/backend`](https://github.com/remnawave/backend) through tag `3.4.4`.
+`libs/contract` of [`remnawave/backend`](https://github.com/remnawave/backend) through tag `3.4.7`.
 
 > The npm package `@remnawave/backend-contract` has its **own** version series and does not
 > track the panel: tag `3.3.2` of the backend ships contract `3.4.2`, tag `3.4.3` ships
-> `3.4.13`, and tag `3.4.4` ships `3.4.15`. Always compare tag to tag — comparing npm versions
+> `3.4.13`, and tags `3.4.4`–`3.4.7` ship `3.4.15`. Always compare tag to tag — comparing npm versions
 > silently mixes up releases.
 
 Panel **3.4.4** adds `sdk.hosts.clone_host(CloneHostBodyDto(clone_from_uuid=host_uuid))`.
@@ -259,6 +259,45 @@ if sdk.webhook_utility.is_user_event(payload.event):
 This fork tracks the Remnawave API closely and fixes the divergences each upstream migration
 left behind.
 
+### Compatibility with 3.4.5–3.4.7
+
+The [changes since 3.4.4](https://github.com/remnawave/backend/compare/3.4.4...3.4.7)
+leave `libs/contract` identical (contract package `3.4.15`): no endpoints, DTO fields,
+scopes or error codes changed. Existing SDK methods remain compatible.
+
+| Panel | Changes relevant to SDK users |
+| --- | --- |
+| [3.4.5](https://github.com/remnawave/backend/releases/tag/3.4.5) | Adds the `postStart` node plugin. Fixes gRPC `multiMode` in generated Xray JSON and ID filters in users/Torrent Blocker reports. Adds the server-side `SERVICE_SNI_VERIFICATION` setting for panel-to-node connections. |
+| [3.4.6](https://github.com/remnawave/backend/releases/tag/3.4.6) | Updates the Docker image to the Node.js security release and changes the server's bulk deletion query. |
+| [3.4.7](https://github.com/remnawave/backend/releases/tag/3.4.7) | Fixes Reality/X25519 public key derivation on the server. |
+
+ID filters now use exact equality for users' `id` and reports' `id`, `userId` and
+`nodeId`; invalid IDs return no matches. The query format is unchanged. These fixes
+and the SNI setting require updating/configuring the panel, with no SDK option needed.
+
+`postStart` (panel 3.4.5+, with a supporting node version) sends an optional webhook
+after Xray starts or restarts. It uses the existing untyped `plugin_config` mapping;
+the panel validates its contents. Preserve other plugin sections when updating it:
+
+```python
+from remnawave.models import SyncNodePluginBodyDto, UpdateNodePluginBodyDto
+
+plugin = await sdk.node_plugins.get_node_plugin_by_uuid(uuid=str(plugin_uuid))
+config = dict(plugin.plugin_config or {})
+config["postStart"] = {
+    "enabled": True,
+    "webhook": {"enabled": True, "url": "https://hooks.example.com/core-started"},
+}
+await sdk.node_plugins.update_node_plugin(
+    UpdateNodePluginBodyDto(uuid=plugin.uuid, plugin_config=config)
+)
+await sdk.node_plugins.sync_node_plugin(SyncNodePluginBodyDto(uuid=plugin.uuid))
+```
+
+`postStart.enabled` defaults to `false` on the panel; `webhook` is optional. When
+provided, it requires `enabled` and an HTTP(S) `url`. Offline compatibility tests
+cover request serialization and response parsing, including disabled and omitted fields.
+
 ### Migration to 3.4
 
 The first **non-additive** step since 3.0: one field was replaced and two endpoints moved.
@@ -404,6 +443,8 @@ uv sync --group dev
 # offline tests (contract regressions, models, enums, controller surface)
 uv run pytest tests/test_3_0_compliance.py tests/test_3_2_compliance.py \
               tests/test_3_2_3_compliance.py tests/test_3_3_compliance.py \
+              tests/test_3_4_compliance.py tests/test_3_4_4_compliance.py \
+              tests/test_3_4_7_compliance.py tests/test_rapid_compatibility.py \
               tests/test_models_validation.py tests/test_enums.py \
               tests/test_controllers_completeness.py
 
